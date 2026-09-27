@@ -84,15 +84,19 @@ Una sessione non può accorgersi da sola che qualcosa è cambiato: può solo gua
 - le righe del Changelog create dopo l'ultimo controllo di questa sessione;
 - le Attività modificate dopo l'ultimo controllo.
 
-Esclude ciò che ha fatto la sessione stessa. Lo stesso script, agganciato in modo silenzioso al `PostToolUse` degli strumenti Notion di scrittura (creazione e modifica di pagine), annota l'id e l'ora delle pagine che la sessione crea o modifica. Una pagina modificata da altri *dopo* viene comunque riportata.
+**Non perdere righe.** L'ora dell'ultimo controllo è quella del PC, mentre `created_time` e `last_edited_time` vengono dai server di Notion, e l'API potrebbe arrotondarli al minuto. Un confronto diretto perderebbe le righe nate vicino a un controllo, senza dirlo: è lo stesso tipo di errore che ha nascosto v64-v67. Quindi:
+- ogni interrogazione parte **5 minuti prima** dell'ultimo controllo;
+- i doppioni si scartano con l'elenco degli id già riportati (per le Attività, id più `last_edited_time`), salvato nello stato dell'hook.
+
+**Esclude ciò che ha fatto la sessione stessa.** Lo stesso script, agganciato in modo silenzioso al `PostToolUse` degli strumenti Notion di scrittura (creazione e modifica di pagine), annota l'id delle pagine che la sessione crea o modifica, con l'ora del server presa dalla risposta dello strumento, se c'è. Una pagina modificata da altri *dopo* viene comunque riportata. **Nel dubbio si riporta**: un falso allarme costa circa 30 token, una riga persa costa l'incidente.
 
 **Cosa scrive**
 - **Niente**, se non c'è nulla di nuovo.
 - **Una riga, raggruppata per sotto-progetto**, se c'è qualcosa. Per esempio: *"[registro] novità da altre sessioni: Dashboard 3D (2 righe di registro, di cui 1 non committata; 1 Attività); Antifurto (1 riga). Se riguarda il tuo lavoro, leggi le viste (regola 2a)."* L'hook non sa su quale sotto-progetto lavori la sessione (le sessioni HA partono tutte dalla stessa cartella); la sessione lo sa, e decide. Così la riga resta corta anche in un giorno di molte modifiche.
-- **Una riga di conferma alla prima esecuzione della sessione**: *"[registro] avviso attivo"*, più le novità se ce ne sono. Senza questa riga, un hook rotto sarebbe indistinguibile da un hook muto perché non c'è niente di nuovo. Se all'inizio della sessione la conferma non compare, l'hook non funziona e valgono le sole regole.
+- **Una riga di conferma alla prima esecuzione della sessione**, che nomina la riga più recente del registro vista dall'hook: *"[registro] avviso attivo, ultima riga: Dashboard 3D v71, 27/09 16:57"*, più le novità se ce ne sono. Senza questa riga, un hook rotto sarebbe indistinguibile da un hook muto perché non c'è niente di nuovo. Nominare l'ultima riga dimostra che l'hook vede davvero i dati: un hook che gira ma non legge niente mostrerebbe una riga vecchia. Se la conferma non compare, o nomina una riga palesemente vecchia, l'hook non funziona e valgono le sole regole.
 - **Una riga di errore** se qualcosa va storto (Notion non risponde entro 2-3 secondi, token scaduto, eccezione dello script): *"[registro] controllo non riuscito: leggi le viste prima di modificare (regola 2a)"*. Mai il silenzio al posto di un errore, e mai un blocco del messaggio.
 
-**Primo controllo di una sessione.** Si parte dalla **data di creazione del file di transcript** (`transcript_path`), che su Windows è affidabile. Il contenuto del transcript non si usa: il suo formato non è documentato e cambia tra versioni. Se la data non è disponibile, si parte da 48 ore prima. Così anche una sessione avviata prima dell'installazione vede tutto ciò che è cambiato da quando è partita.
+**Primo controllo di una sessione** (nessuno stato salvato): si parte da **48 ore prima**. Le sessioni avviate prima dell'adozione ricadono comunque nella regola 3.
 
 **Token Notion.** Un'integrazione **in sola lettura**, collegata solo a Changelog, Attività e Sotto-progetti (per scrivere i nomi dei sotto-progetti), con il token in una variabile d'ambiente del PC.
 
@@ -120,7 +124,7 @@ Nel Core Protocol vanno solo quattro righe. Definizioni e dettagli vanno in un r
 > Non reinterrogare Notion per ogni file/commit. Tocca Notion a fine sessione, o per una Decisione stabile (append-only).
 
 con:
-> Non reinterrogare Notion per ogni file/commit, **salvo il coordinamento tra sessioni** (regole complete nel Protocollo *Registro condiviso*, da leggere prima della prima modifica reale o presa in carico della sessione): (1) subito dopo ogni modifica reale, una riga di Changelog con `Riferimento`; (2) a inizio compito e prima di una modifica reale, leggi le viste *Registro recente* e *Attività in corso* e rileggi dallo stato vero ciò che sovrascrivi; per uno spazio condiviso prendi in carico l'Attività (`Sessione`, `Dove`); (3) base non affidabile → handoff e sessione nuova. Per il resto tocca Notion a fine sessione, o per una Decisione stabile (append-only).
+> Non reinterrogare Notion per ogni file/commit, **salvo il coordinamento tra sessioni** (regole complete nel Protocollo *Registro condiviso*, da leggere prima della prima modifica reale o presa in carico della sessione): (1) subito dopo ogni modifica reale, una riga di Changelog con `Riferimento`; (2) a inizio compito e prima di una modifica reale, leggi le viste *Registro recente* e *Attività in corso* (a inizio compito si salta se l'hook `[registro]` è confermato attivo e non segnala il tuo sotto-progetto) e rileggi dallo stato vero ciò che sovrascrivi; per uno spazio condiviso prendi in carico l'Attività (`Sessione`, `Dove`); (3) base non affidabile → handoff e sessione nuova. Per il resto tocca Notion a fine sessione, o per una Decisione stabile (append-only).
 
 **FINE SESSIONE**. Nella riga del Changelog, sostituire "1 record solo per eventi consequenziali (…)" con:
 > le modifiche reali sono già registrate (DURANTE); qui solo gli eventi consequenziali che non lo sono (transizione di stato, milestone, decisione). Rilascia le prese in carico (`Sessione` vuota) o lasciale esplicitamente in un handoff. Ogni riga ha `Riferimento`.
@@ -162,7 +166,7 @@ Tutte e due servono anche a Matteo per vedere a colpo d'occhio chi fa cosa.
 - l'API Notion per l'hook: filtri per `created_time` e `last_edited_time`, versione dell'API per i data source, limiti di frequenza (ogni controllo fa 2-3 richieste);
 - i nomi degli strumenti Notion di creazione e modifica pagine nella configurazione del PC (servono al matcher del `PostToolUse`), e che `tool_input`/`tool_response` contengano l'id della pagina. La documentazione conferma che `tool_response` è disponibile, ma non la sua forma per questi strumenti;
 - che il testo restituito da un `PostToolUse` via JSON (`hookSpecificOutput.additionalContext`) entri davvero nel contesto a metà di un compito: è documentato, non provato;
-- che su Windows la data di creazione del file di transcript corrisponda all'avvio della sessione.
+- se l'API di Notion arrotonda `created_time` e `last_edited_time` al minuto: la finestra di 5 minuti copre entrambi i casi, ma va saputo.
 
 **Template di pagina:** facoltativo. Utile per le righe che Matteo scrive a mano.
 
@@ -185,6 +189,10 @@ Tutte e due servono anche a Matteo per vedere a colpo d'occhio chi fa cosa.
 - **La riga dell'hook è per sotto-progetto, non per argomento:** due sessioni sullo stesso sotto-progetto ma su cose diverse si vedono a vicenda come novità. È un rumore basso e voluto, perché la scelta di cosa è rilevante resta alla sessione.
 - **Due scritture nello stesso istante** (anche due prese in carico) restano possibili, con una finestra di secondi, accettata. Il read-back ne riduce gli effetti.
 - **Il registro cresce di più**; le serie restano contenute grazie alla presa in carico.
+
+## Adozione in due fasi
+1. **Nucleo:** le tre regole, la presa in carico nelle Attività, i campi nuovi, le due viste, le quattro righe nel Core Protocol e il record di Protocollo. Funziona da solo, ed è già un sistema completo.
+2. **Dopo circa una settimana di uso reale:** l'hook `hook-registro`. La settimana serve a verificare il nucleo e dà un punto di confronto per capire quanto l'hook fa risparmiare in token e quanto riduce le sorprese.
 
 ## Cosa resta delle Proposte A e B
 Strumenti facoltativi, solo se servono a un progetto specifico: uno script per la parte git della lettura, il timbro di build per la card, l'anteprima per ogni worker. Nessuno è necessario al sistema.
@@ -222,6 +230,9 @@ Strumenti facoltativi, solo se servono a un progetto specifico: uno script per l
 1. **Rumore:** filtrare per progetto avrebbe avvisato ogni sessione HA di ogni rilascio di ogni sotto-progetto, perché le sessioni HA partono tutte dalla stessa cartella → **una sola riga raggruppata per sotto-progetto**, e la sessione decide cosa la riguarda.
 2. **Silenzio ambiguo:** un hook rotto era indistinguibile da un hook senza novità, e le sessioni avrebbero saltato la lettura fidandosi del silenzio: di nuovo l'incidente → **riga di conferma** a inizio sessione e **riga di errore** al posto del silenzio. Il salto della 2(a) a inizio compito è ammesso solo con l'hook confermato attivo.
 3. **Sessioni al lavoro:** il campanello tra sessioni (`SendMessage`) dipendeva dalla disciplina di chi rilascia → sostituito dallo stesso hook sul `PostToolUse`, al massimo ogni 10 minuti. La documentazione conferma che un `PostToolUse` può aggiungere testo al contesto via JSON.
-4. **Punto di partenza del primo controllo:** i timestamp interni del transcript non sono documentati e il formato cambia tra versioni → si usa la data di creazione del file, altrimenti 48 ore.
+4. **Punto di partenza del primo controllo:** i timestamp interni del transcript non sono documentati e il formato cambia tra versioni → 48 ore; le sessioni avviate prima dell'adozione ricadono nella regola 3.
 5. **Righe proprie:** escludere solo le pagine *create* dalla sessione riportava come novità le sue stesse prese in carico → si escludono anche le pagine *modificate* dalla sessione, a meno che qualcun altro le modifichi dopo.
 6. **Identità della sessione:** una sessione che non conosce il proprio URL non potrebbe compilare `Sessione` in modo coerente → usa un nome unico, sempre uguale in tutte le sue righe.
+7. **Righe perse in silenzio:** confrontare l'ora del PC con i timestamp dei server Notion (forse arrotondati al minuto) perdeva le righe nate vicino a un controllo, e la conferma non se ne sarebbe accorta → finestra sovrapposta di 5 minuti, doppioni scartati per id, "nel dubbio si riporta"; la conferma nomina l'ultima riga vista.
+8. **Salto della 2(a) irraggiungibile:** la regola stava solo nel record di Protocollo, che si legge dopo il primo compito → la regola va anche nelle quattro righe del Core Protocol.
+9. **Troppo tutto insieme:** adozione in due fasi, con l'hook solo nella seconda (vedi "Adozione").
