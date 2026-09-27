@@ -9,7 +9,7 @@ Matteo divide i progetti grandi in molte sessioni, per evitare il context bloat,
 |---|---|---|
 | Il fix è arrivato a convergenza solo quando una **sessione nuova** ha ricevuto un **handoff autosufficiente**. La sessione "principale" (546k token di contesto) era ormai ferma a uno stato vecchio. | **1. Handoff come formato standard e "riparti da fresco"** | zero |
 | La sessione ripresa non sapeva della v68, che era **già nel Changelog**: il protocollo le vietava di rileggere Notion a metà sessione. | **2. `/riallinea` alla ripresa** | zero |
-| v71 rilasciata da codice non committato; nessun record per v64-v67, v69, v70; rilasci da un branch verso l'unica produzione. | **3. Controllo prima di scrivere in produzione** | zero |
+| v71 rilasciata da codice non committato; nessun record per v69 e v70 (v64-v67 in realtà sono registrati: una prima analisi li aveva dati per mancanti per un errore nel filtro sulla data); rilasci da un branch verso l'unica produzione. | **3. Controllo prima di scrivere in produzione** | zero |
 | Due sessioni vive sullo stesso checkout. | **4. Una sessione attiva per checkout** | zero |
 
 **Verifica di topologia:** ogni pezzo gira per sessione e non dipende da quale sessione sia "principale".

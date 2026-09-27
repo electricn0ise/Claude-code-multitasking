@@ -11,7 +11,7 @@ Vale per ogni tipo di progetto, con o senza repo: "modifica reale" è qualunque 
 
 ## Cosa risolve dell'incidente della Dashboard 3D (27/09)
 - v68 e v71 rilasciate in produzione da **due sessioni diverse** → con un solo scrittore non succede.
-- Changelog con buchi (v64-v67, v69, v70) → l'unico scrittore registra ogni scrittura.
+- Rilasci registrati con disciplina diversa a seconda della sessione (v64-v68 registrati, v71 senza riferimento a un commit, v69 e v70 senza traccia) → l'unico scrittore registra ogni scrittura nello stesso modo. *(Correzione: una prima analisi aveva dato per mancanti anche v64-v67, per un errore nel filtro sulla data.)*
 - "Remove + recreate" di un'automazione da una copia vecchia → il confronto con lo stato live prima di scrivere sta **in un posto solo**, invece di essere un'istruzione che ogni sessione può saltare.
 - Conferme di Matteo prima di ogni scrittura in HA → concentrate in una sessione invece che sparse.
 
