@@ -37,6 +37,10 @@ Non sono modifiche reali:
 - **Si rilascia:** `Stato` passa ad altro e `Sessione` si svuota. Anche un handoff è un rilascio: `Handoff` = → Claude Code e `Sessione` vuota. La sessione nuova prende in carico scrivendo la propria.
 - **Righe esistenti:** le Attività già *In corso* senza `Sessione` contano come non prese in carico.
 
+**Righe dell'intero progetto.** Contano per **tutte** le sessioni del progetto:
+- le righe di Changelog e le Attività **senza sotto-progetto**. È il caso normale per i progetti che non hanno sotto-progetti, e non serve creare un sotto-progetto "Core": il Core Protocol vieta già i sotto-progetti condivisi sintetici;
+- le righe del **sotto-progetto di piattaforma**, se il progetto ne ha uno. Per Home Assistant è **HA-core** (config core, integrazioni, aggiornamenti): un aggiornamento di HA riguarda anche chi lavora sull'Antifurto. Il protocollo del progetto lo nomina una volta sola.
+
 **Base non affidabile.** La sessione non può più fidarsi di ciò che ha in contesto. Succede in tre casi:
 - Matteo lo dice;
 - dopo una compaction, la regola 2 mostra cambiamenti altrui troppo estesi per integrarli rileggendo pochi file;
@@ -47,13 +51,13 @@ Non sono modifiche reali:
 **1. Scrivi nel registro subito dopo ogni modifica reale.** Una riga con:
 - `Nome`: cosa, e la versione se c'è;
 - `Riferimento`: sha, `backup_id` o percorso, altrimenti "non committato";
-- `Sotto-progetto`: tutti quelli toccati, oppure vuoto con solo `Progetto` se la modifica è di piattaforma;
+- `Sotto-progetto`: tutti quelli toccati. Vuoto, con solo `Progetto`, se il progetto non ha sotto-progetti o se la modifica riguarda l'intero progetto e non esiste un sotto-progetto di piattaforma apposito (per HA c'è: HA-core);
 - `Progetto`, `Tipo`, `Sessione`.
 
 Per una **serie** alla stessa cosa, sotto presa in carico, basta una riga alla fine, con il riferimento finale. Se la riga non si riesce a scrivere (per esempio Notion è irraggiungibile), niente altre modifiche reali finché non ci si riesce, salvo decisione di Matteo; si tiene l'elenco delle righe mancanti e si registrano appena possibile.
 
 **2. All'inizio di ogni compito e prima di una modifica reale, leggi.**
-- **(a) Registro e Attività.** Si leggono le viste *Registro recente* e *Attività in corso* (vedi sotto). Il *Registro recente* si legge dall'alto fino alla prima riga già vista; se non ricordi nessuna riga vista (sessione nuova o dopo una compaction), due pagine. Contano le righe non tue del tuo sotto-progetto, o di piattaforma del tuo progetto. In particolare:
+- **(a) Registro e Attività.** Si leggono le viste *Registro recente* e *Attività in corso* (vedi sotto). Il *Registro recente* si legge dall'alto fino alla prima riga già vista; se non ricordi nessuna riga vista (sessione nuova o dopo una compaction), due pagine. Contano le righe non tue del tuo sotto-progetto e quelle **dell'intero progetto** (vedi "Righe dell'intero progetto" sotto). In particolare:
   - **presa in carico di un'altra sessione** sulla stessa cosa, o con lo stesso `Dove` → worktree proprio, oppure chiedi a Matteo;
   - **un'Attività che avevi preso in carico non porta più la tua `Sessione`** (vuota o diversa) → non sei più il proprietario: niente modifiche reali, ti fermi;
   - **una riga altrui "non committato"** → la produzione è avanti rispetto a git: la integri prima di qualunque rilascio.
@@ -92,7 +96,7 @@ Una sessione non può accorgersi da sola che qualcosa è cambiato: può solo gua
 
 **Cosa scrive**
 - **Niente**, se non c'è nulla di nuovo.
-- **Una riga, raggruppata per sotto-progetto**, se c'è qualcosa. Per esempio: *"[registro] novità da altre sessioni: Dashboard 3D (2 righe di registro, di cui 1 non committata; 1 Attività); Antifurto (1 riga). Se riguarda il tuo lavoro, leggi le viste (regola 2a)."* L'hook non sa su quale sotto-progetto lavori la sessione (le sessioni HA partono tutte dalla stessa cartella); la sessione lo sa, e decide. Così la riga resta corta anche in un giorno di molte modifiche.
+- **Una riga, raggruppata per sotto-progetto**, se c'è qualcosa. Per esempio: *"[registro] novità da altre sessioni: Dashboard 3D (2 righe di registro, di cui 1 non committata; 1 Attività); Antifurto (1 riga). Se riguarda il tuo lavoro, leggi le viste (regola 2a)."* L'hook non sa su quale sotto-progetto lavori la sessione (le sessioni HA partono tutte dalla stessa cartella); la sessione lo sa, e decide. Così la riga resta corta anche in un giorno di molte modifiche. Le righe e le Attività senza sotto-progetto vanno sotto il nome del progetto, per esempio *"Home Assistant (intero progetto): 1 riga"*. Quelle e le righe del sotto-progetto di piattaforma (HA-core) riguardano tutte le sessioni del progetto.
 - **Una riga di conferma alla prima esecuzione della sessione**, che nomina la riga più recente del registro vista dall'hook: *"[registro] avviso attivo, ultima riga: Dashboard 3D v71, 27/09 16:57"*, più le novità se ce ne sono. Senza questa riga, un hook rotto sarebbe indistinguibile da un hook muto perché non c'è niente di nuovo. Nominare l'ultima riga dimostra che l'hook vede davvero i dati: un hook che gira ma non legge niente mostrerebbe una riga vecchia. Se la conferma non compare, o nomina una riga palesemente vecchia, l'hook non funziona e valgono le sole regole.
 - **Una riga di errore** se qualcosa va storto (Notion non risponde entro 2-3 secondi, token scaduto, eccezione dello script): *"[registro] controllo non riuscito: leggi le viste prima di modificare (regola 2a)"*. Mai il silenzio al posto di un errore, e mai un blocco del messaggio.
 
@@ -135,6 +139,8 @@ con:
 **AUTONOMO vs DA PROPORRE.** Prendere e rilasciare in carico un'Attività è **autonomo**, solo comunicato. Raccomandazione, da approvare: anche **aprire un'Attività** diventa autonomo quando sta dentro un sotto-progetto esistente e serve a prendere in carico il lavoro che la sessione sta per fare. Altrimenti le sessioni salterebbero la presa in carico per evitare il passaggio di conferma.
 
 **Nuovo record in 📐 Protocolli: "Registro condiviso".** Contiene le sezioni "Definizioni", "Le tre regole" e "L'avviso alle sessioni già avviate" di questo documento.
+
+**Protocollo 📐 Home Assistant — Runtime.** Una riga in più: *"Sotto-progetto di piattaforma: HA-core. Le sue righe di Changelog contano per tutte le sessioni HA (Protocollo Registro condiviso)."*
 
 ## Modifiche allo schema (da approvare)
 **🕘 Changelog**
@@ -236,3 +242,4 @@ Strumenti facoltativi, solo se servono a un progetto specifico: uno script per l
 7. **Righe perse in silenzio:** confrontare l'ora del PC con i timestamp dei server Notion (forse arrotondati al minuto) perdeva le righe nate vicino a un controllo, e la conferma non se ne sarebbe accorta → finestra sovrapposta di 5 minuti, doppioni scartati per id, "nel dubbio si riporta"; la conferma nomina l'ultima riga vista.
 8. **Salto della 2(a) irraggiungibile:** la regola stava solo nel record di Protocollo, che si legge dopo il primo compito → la regola va anche nelle quattro righe del Core Protocol.
 9. **Troppo tutto insieme:** adozione in due fasi, con l'hook solo nella seconda (vedi "Adozione").
+10. **Progetti senza sotto-progetti e piattaforma** (osservazione di Matteo): il documento non diceva come trattare le righe senza sotto-progetto, e una sessione sull'Antifurto poteva ignorare un aggiornamento di HA-core perché "non è il suo sotto-progetto" → **righe dell'intero progetto**: quelle senza sotto-progetto e quelle del sotto-progetto di piattaforma (HA-core) contano per tutte le sessioni. Nessun sotto-progetto "Core" obbligatorio, perché il Core Protocol vieta i sotto-progetti condivisi sintetici e i progetti leggeri non ne hanno bisogno.
