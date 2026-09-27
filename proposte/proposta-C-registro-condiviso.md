@@ -31,7 +31,7 @@ Non sono modifiche reali:
 
 **Spazio condiviso.** Una cartella o risorsa che più sessioni possono toccare: il checkout principale di un repo, una risorsa in copia unica (`CASA.sh3d`), la produzione HA. Uno spazio proprio (worktree, copia, anteprima) non è condiviso.
 
-**Presa in carico.** Un'Attività con `Stato` = *In corso*, il campo `Sessione` compilato (l'URL della sessione, oppure "Matteo" se ci lavora lui a mano) e, se tocca uno spazio condiviso, il campo `Dove` compilato. `Dove` indica l'**identità dello spazio, senza il branch**: per esempio "checkout principale sweet-home-3d-casa", "HA produzione: card dashboard3d", "CASA.sh3d". Stesso spazio vuol dire collisione, qualunque sia il branch.
+**Presa in carico.** Un'Attività con `Stato` = *In corso*, il campo `Sessione` compilato (l'URL della sessione; "Matteo" se ci lavora lui a mano; se la sessione non conosce il proprio URL, un nome unico come "locale 27/09 21:40", sempre uguale in tutte le sue righe di Attività e Changelog) e, se tocca uno spazio condiviso, il campo `Dove` compilato. `Dove` indica l'**identità dello spazio, senza il branch**: per esempio "checkout principale sweet-home-3d-casa", "HA produzione: card dashboard3d", "CASA.sh3d". Stesso spazio vuol dire collisione, qualunque sia il branch.
 - **Serve** solo per lavorare in uno spazio condiviso, o per una serie di modifiche reali alla stessa cosa (per esempio le prove ripetute sul tablet). Il lavoro in uno spazio proprio non la richiede.
 - **Si prende:** si scrive `Sessione` (e `Dove`), poi si rilegge l'Attività, come vuole la regola SCRITTURA ("read-back"). Se c'è un altro valore, ci si ritira.
 - **Si rilascia:** `Stato` passa ad altro e `Sessione` si svuota. Anche un handoff è un rilascio: `Handoff` = → Claude Code e `Sessione` vuota. La sessione nuova prende in carico scrivendo la propria.
@@ -62,7 +62,7 @@ Per una **serie** alla stessa cosa, sotto presa in carico, basta una riga alla f
 Se (a) o (b) mostrano cambiamenti non tuoi, **prima integri e poi scrivi** (merge, rilettura, adattamento), oppure chiedi a Matteo.
 
 Eccezioni, per non ripetere letture inutili:
-- se l'hook ha appena riportato le novità, la (a) a inizio compito è già fatta;
+- se l'hook è attivo (conferma vista a inizio sessione, nessuna riga di errore) e non ha segnalato novità per il tuo sotto-progetto, la (a) **a inizio compito** si può saltare; prima di una modifica reale si fa comunque;
 - per modifiche reali consecutive alla stessa cosa, nello stesso turno di lavoro, la (a) si può saltare; la (b) resta sempre;
 - dopo una compaction si rifanno (a) e (b) per intero.
 
@@ -74,36 +74,44 @@ Eccezioni, per non ripetere letture inutili:
 Chi ha scritto un handoff non fa più modifiche reali.
 
 ## L'avviso alle sessioni già avviate
-Una sessione non può accorgersi da sola che qualcosa è cambiato: può solo guardare, o essere avvisata. Si distinguono due casi.
+Una sessione non può accorgersi da sola che qualcosa è cambiato: può solo guardare, o essere avvisata. A questo serve **`hook-registro`**: un solo script Python, configurato a livello utente sul PC, che interroga il registro **fuori dal modello**, quindi senza consumare token, e scrive nel contesto solo quando c'è qualcosa da dire.
 
-**Sessione ferma, che riceve un messaggio di Matteo (il caso della dashboard): hook `hook-registro`.** È un hook `UserPromptSubmit` sul PC, a livello utente, in Python.
-- A ogni messaggio interroga via API Notion, in sola lettura:
-  - il Changelog: righe create dopo l'ultimo controllo di questa sessione;
-  - le Attività: righe modificate dopo l'ultimo controllo.
-- Tiene solo le righe del **progetto della cartella della sessione**. L'abbinamento cartella → `Repo` è lo stesso del BOOT; senza abbinamento tiene tutti i progetti.
-- Esclude le righe **scritte da questa sessione**. Le riconosce grazie a un secondo hook `PostToolUse`, silenzioso, sullo strumento Notion di creazione delle pagine: annota gli id delle pagine create dalla sessione.
-- **Se non c'è niente di nuovo non stampa niente**, anche dopo una pausa di giorni. Se c'è qualcosa, stampa al massimo tre righe, poi "+N". Per esempio: *"[registro] da altre sessioni: Dashboard 3D v68 (27/09 00:13, rif. non committato); Attività 'Ciclo solare' presa in carico da un'altra sessione"*.
-- **Primo controllo di una sessione:** il punto di partenza è il primo timestamp del file di transcript della sessione (`transcript_path`). Così anche una sessione avviata prima dell'installazione dell'hook vede tutto ciò che è cambiato da quando è partita.
-- **Se Notion non risponde** (timeout di 2-3 secondi): non blocca mai il messaggio. Se dall'ultimo messaggio sono passati più di 30 minuti stampa *"[pausa di X h: registro non raggiungibile, rileggilo (regola 2a)]"*, altrimenti niente.
-- **Token Notion:** un'integrazione **in sola lettura**, condivisa solo con Changelog, Attività e Progetti, con il token in una variabile d'ambiente del PC.
+**Quando controlla**
+- **A ogni messaggio di Matteo** (`UserPromptSubmit`). È il caso della dashboard: la sessione era ferma e Matteo ci è tornato sopra.
+- **Durante il lavoro autonomo** (`PostToolUse`), al massimo una volta ogni 10 minuti. Tra un controllo e l'altro lo script esce subito, senza chiamare Notion. Copre la sessione che lavora da sola per ore mentre un'altra rilascia.
 
-**Sessione al lavoro da sola a lungo: campanello tra sessioni.** Chi fa una modifica reale guarda le *Attività in corso* dello stesso sotto-progetto o dello stesso `Dove`. Alle sessioni che le hanno in carico manda un `SendMessage` di una riga (*"ho rilasciato la v68 della card, riga nel registro"*), che arriva al loro prossimo passo di lavoro. È solo un campanello: se non arriva, resta la regola 2 prima di scrivere.
+**Cosa controlla.** Via API REST di Notion, in sola lettura:
+- le righe del Changelog create dopo l'ultimo controllo di questa sessione;
+- le Attività modificate dopo l'ultimo controllo.
 
-**L'hook è facoltativo:** senza, il sistema funziona con le sole regole, perché la 2(a) a inizio compito fa lo stesso lavoro, solo spendendo token. Se lo script si rompe si torna a quella situazione, e non si rompe nient'altro.
+Esclude ciò che ha fatto la sessione stessa. Lo stesso script, agganciato in modo silenzioso al `PostToolUse` degli strumenti Notion di scrittura (creazione e modifica di pagine), annota l'id e l'ora delle pagine che la sessione crea o modifica. Una pagina modificata da altri *dopo* viene comunque riportata.
+
+**Cosa scrive**
+- **Niente**, se non c'è nulla di nuovo.
+- **Una riga, raggruppata per sotto-progetto**, se c'è qualcosa. Per esempio: *"[registro] novità da altre sessioni: Dashboard 3D (2 righe di registro, di cui 1 non committata; 1 Attività); Antifurto (1 riga). Se riguarda il tuo lavoro, leggi le viste (regola 2a)."* L'hook non sa su quale sotto-progetto lavori la sessione (le sessioni HA partono tutte dalla stessa cartella); la sessione lo sa, e decide. Così la riga resta corta anche in un giorno di molte modifiche.
+- **Una riga di conferma alla prima esecuzione della sessione**: *"[registro] avviso attivo"*, più le novità se ce ne sono. Senza questa riga, un hook rotto sarebbe indistinguibile da un hook muto perché non c'è niente di nuovo. Se all'inizio della sessione la conferma non compare, l'hook non funziona e valgono le sole regole.
+- **Una riga di errore** se qualcosa va storto (Notion non risponde entro 2-3 secondi, token scaduto, eccezione dello script): *"[registro] controllo non riuscito: leggi le viste prima di modificare (regola 2a)"*. Mai il silenzio al posto di un errore, e mai un blocco del messaggio.
+
+**Primo controllo di una sessione.** Si parte dalla **data di creazione del file di transcript** (`transcript_path`), che su Windows è affidabile. Il contenuto del transcript non si usa: il suo formato non è documentato e cambia tra versioni. Se la data non è disponibile, si parte da 48 ore prima. Così anche una sessione avviata prima dell'installazione vede tutto ciò che è cambiato da quando è partita.
+
+**Token Notion.** Un'integrazione **in sola lettura**, collegata solo a Changelog, Attività e Sotto-progetti (per scrivere i nomi dei sotto-progetti), con il token in una variabile d'ambiente del PC.
+
+**L'hook è facoltativo.** Senza, il sistema funziona con le sole regole, perché la 2(a) fa lo stesso lavoro spendendo token. Se si rompe, la riga di errore o l'assenza della conferma lo rendono evidente, e si torna alle regole senza rompere nient'altro.
 
 ## Scenari di prova (percorsi sulla carta)
 | Scenario | Cosa succede | Esito |
 |---|---|---|
 | **Due sessioni vive nello stesso checkout** (l'incidente del 26-27/09) | La sessione del ciclo solare prende in carico "Ciclo solare" con `Dove` = "checkout principale sweet-home-3d-casa". L'altra, qualunque branch usi, lo vede con l'hook o con la 2(a): worktree proprio, oppure chiede. Se la presa in carico manca, prima di scrivere la 2(b) trova con `git status` modifiche non sue e si ferma. | regge |
-| **Matteo torna sulla sessione vecchia e scrive "continua"** (il sintomo segnalato) | L'hook stampa le righe v64-v68 dell'altra sessione e la presa in carico del ciclo solare prima che la sessione ragioni. Senza hook, se ne accorge prima della prossima modifica reale (2a). | regge (con l'hook subito, senza hook alla scrittura) |
+| **Matteo torna sulla sessione vecchia e scrive "continua"** (il sintomo segnalato) | Prima che la sessione ragioni, l'hook scrive "Dashboard 3D: 5 righe di registro, 1 Attività". La sessione legge le viste e trova v64-v68 e la presa in carico del ciclo solare. Senza hook, se ne accorge prima della prossima modifica reale (2a). | regge (con l'hook subito, senza hook alla scrittura) |
 | **Rilascio da codice non committato** (v71) | La riga porta "non committato". Chi legge sa che la produzione è avanti rispetto a git e la integra prima di un rilascio; il controllo di integrità lo elenca come debito. | regge |
-| **Sessione vecchia che continua dopo un handoff scritto da un'altra** (il caso reale del 27/09) | L'handoff ha svuotato `Sessione` e la sessione nuova ha scritto la propria. Alla vecchia l'hook segnala al primo messaggio "Attività presa in carico da un'altra sessione", e la 2(a) prima del commit la ferma. | regge per le sessioni che avevano preso in carico; quelle avviate prima dell'adozione ricadono nella regola 3 |
+| **Sessione vecchia che continua dopo un handoff scritto da un'altra** (il caso reale del 27/09) | L'handoff ha svuotato `Sessione` e la sessione nuova ha scritto la propria. Alla vecchia l'hook segnala "Dashboard 3D: 1 Attività" al primo messaggio (o entro 10 minuti, se sta lavorando da sola). Leggendo la vista scopre che l'Attività non porta più la sua `Sessione`, e la 2(a) prima del commit la ferma. | regge per le sessioni che avevano preso in carico; quelle avviate prima dell'adozione ricadono nella regola 3 |
 | **Matteo modifica un'automazione dall'interfaccia**, poi una sessione fa remove + recreate | Nel registro non c'è niente, ma la 2(b) rilegge la config live subito prima di scrivere, vede la differenza e integra o chiede. | regge |
-| **Sessione ripresa dopo tre giorni** | L'hook riporta tutto ciò che è cambiato da allora (al massimo tre righe, poi "+N" e l'invito a leggere la vista). | regge |
+| **Sessione ripresa dopo tre giorni** | L'hook riassume in una riga, per sotto-progetto, tutto ciò che è cambiato dall'ultimo controllo; la sessione legge le viste di ciò che la riguarda. | regge |
+| **L'hook si rompe** (token scaduto, Python aggiornato, API cambiata) | Riga di errore a ogni controllo, oppure manca la conferma a inizio sessione: la sessione torna alle regole, e Matteo vede il problema. | regge, con più token finché non viene sistemato |
 | **Ciclo lungo di prove sul tablet** | Presa in carico con `Dove` = "HA produzione: card", 2(b) prima di ogni rilascio, una riga di Changelog alla fine. Le altre sessioni vedono la presa in carico. | regge, con una riga invece di dieci |
-| **Sessione al lavoro da ore mentre un'altra rilascia** | Il campanello arriva al suo prossimo passo. Se non arriva, la 2(a) e la 2(b) prima della sua prossima modifica reale. | regge, con un possibile ritardo fino alla prossima scrittura |
+| **Sessione al lavoro da ore mentre un'altra rilascia** | Il controllo sul `PostToolUse` la avvisa entro 10 minuti, a metà del lavoro. Comunque la 2(a) e la 2(b) scattano prima della sua prossima modifica reale. | regge (ritardo massimo 10 minuti) |
 | **Presa in carico appesa** (la sessione è morta) | L'Attività resta *In corso* con una `Sessione` inattiva. Chi la trova chiede a Matteo; il controllo mensile la segnala. | regge |
-| **Notion irraggiungibile** | L'hook tace o dà l'avviso di pausa; stop alle modifiche reali finché la riga non si può scrivere, salvo decisione di Matteo. | regge |
+| **Notion irraggiungibile** | L'hook scrive la riga di errore; stop alle modifiche reali finché la riga di registro non si può scrivere, salvo decisione di Matteo. | regge |
 
 ## Modifiche al ⚙️ Core Protocol (sempre caricato: aggiunta corta)
 Nel Core Protocol vanno solo quattro righe. Definizioni e dettagli vanno in un record di 📐 Protocolli letto **solo quando serve**.
@@ -151,9 +159,10 @@ Tutte e due servono anche a Matteo per vedere a colpo d'occhio chi fa cosa.
 
 **Da verificare all'applicazione:**
 - che la lettura tramite vista non abbia quota (lo dice la descrizione dello strumento, non l'ho osservato) e rispetti l'ordinamento per `Creato`;
-- l'API Notion per l'hook: filtro per `created_time` e `last_edited_time`, versione dell'API per i data source;
-- il nome dello strumento Notion di creazione pagine nella configurazione del PC (serve al matcher del `PostToolUse`), e se il risultato contiene l'id della pagina creata;
-- se i messaggi tra sessioni via Remote Control arrivano subito o restano in attesa di approvazione.
+- l'API Notion per l'hook: filtri per `created_time` e `last_edited_time`, versione dell'API per i data source, limiti di frequenza (ogni controllo fa 2-3 richieste);
+- i nomi degli strumenti Notion di creazione e modifica pagine nella configurazione del PC (servono al matcher del `PostToolUse`), e che `tool_input`/`tool_response` contengano l'id della pagina. La documentazione conferma che `tool_response` è disponibile, ma non la sua forma per questi strumenti;
+- che il testo restituito da un `PostToolUse` via JSON (`hookSpecificOutput.additionalContext`) entri davvero nel contesto a metà di un compito: è documentato, non provato;
+- che su Windows la data di creazione del file di transcript corrisponda all'avvio della sessione.
 
 **Template di pagina:** facoltativo. Utile per le righe che Matteo scrive a mano.
 
@@ -164,15 +173,16 @@ Tutte e due servono anche a Matteo per vedere a colpo d'occhio chi fa cosa.
 
 ## Costo
 - **Scrittura:** una riga di Changelog per modifica reale (una per serie). Due scritture sull'Attività per presa in carico (prendere e rilasciare), più la rilettura.
-- **Lettura, con l'hook:** zero token quando non c'è niente di nuovo; circa 25 token per riga riportata. Le viste si leggono prima delle modifiche reali, circa 1-2k token.
+- **Lettura, con l'hook:** zero token quando non c'è niente di nuovo; una riga di conferma a inizio sessione; circa 30-50 token per ogni riga di novità. Le viste si leggono solo quando l'hook segnala novità sul proprio sotto-progetto e prima delle modifiche reali, circa 1-2k token.
 - **Lettura, senza l'hook:** una lettura delle due viste a inizio compito e prima delle modifiche reali, circa 1-2k token; 3-4k alla prima lettura e dopo una compaction.
 - **Protocollo:** il record *Registro condiviso* si legge una volta per sessione, solo se la sessione fa modifiche reali o prese in carico. Il Core Protocol sempre caricato cresce di circa quattro righe.
-- **Hook:** una chiamata a Notion a ogni messaggio (qualche centinaio di millisecondi); uno script da mantenere; un token in sola lettura sul PC.
+- **Hook:** 2-3 richieste a Notion a ogni messaggio e al massimo ogni 10 minuti durante il lavoro autonomo (qualche centinaio di millisecondi ciascuna); uno script da mantenere; un token in sola lettura sul PC.
 
 ## Limiti dichiarati
 - **Nessun vincolo tecnico:** tutto si regge sul fatto che le sessioni seguano le regole. L'hook porta le informazioni nel contesto ma non obbliga a usarle. Le difese restano la 2(b) nel momento della scrittura e il controllo di integrità a posteriori.
 - **Sessioni cloud:** l'hook è configurato sul PC. Nel cloud servirebbe il token come segreto dell'ambiente; fino ad allora valgono le sole regole.
-- **Sessione al lavoro da ore senza campanello:** se ne accorge solo alla prossima modifica reale.
+- **Ritardo durante il lavoro autonomo:** fino a 10 minuti tra un cambiamento altrui e l'avviso; comunque prima della modifica reale successiva.
+- **La riga dell'hook è per sotto-progetto, non per argomento:** due sessioni sullo stesso sotto-progetto ma su cose diverse si vedono a vicenda come novità. È un rumore basso e voluto, perché la scelta di cosa è rilevante resta alla sessione.
 - **Due scritture nello stesso istante** (anche due prese in carico) restano possibili, con una finestra di secondi, accettata. Il read-back ne riduce gli effetti.
 - **Il registro cresce di più**; le serie restano contenute grazie alla presa in carico.
 
@@ -205,5 +215,13 @@ Strumenti facoltativi, solo se servono a un progetto specifico: uno script per l
 1. Il "lavoro in corso" della rev. 3 stava nel Changelog, violando la matrice di ownership (lo stato di esecuzione appartiene alle Attività) → **presa in carico** con `Sessione` e `Dove`, e l'opzione `Tipo` = *In corso* del Changelog è tolta.
 2. `Dove` indica lo spazio **senza il branch**: l'incidente era proprio due sessioni nello stesso checkout su branch diversi.
 3. La sessione vecchia che continua dopo un handoff scritto da un'altra ora è coperta: l'Attività non porta più la sua `Sessione`.
-4. Una sessione già avviata non può accorgersi da sola dei cambiamenti → **hook di avviso** sul registro e sulle Attività (muto se non c'è niente di nuovo) e **campanello** tra sessioni per quelle al lavoro.
+4. Una sessione già avviata non può accorgersi da sola dei cambiamenti → **hook di avviso** sul registro e sulle Attività, muto se non c'è niente di nuovo.
 5. Corsa alla presa in carico: read-back dopo la scrittura. Le Attività già *In corso* senza `Sessione` non sono conflitti.
+
+**Ricontrollo totale della revisione 4** (problemi trovati e corretti prima di chiuderla):
+1. **Rumore:** filtrare per progetto avrebbe avvisato ogni sessione HA di ogni rilascio di ogni sotto-progetto, perché le sessioni HA partono tutte dalla stessa cartella → **una sola riga raggruppata per sotto-progetto**, e la sessione decide cosa la riguarda.
+2. **Silenzio ambiguo:** un hook rotto era indistinguibile da un hook senza novità, e le sessioni avrebbero saltato la lettura fidandosi del silenzio: di nuovo l'incidente → **riga di conferma** a inizio sessione e **riga di errore** al posto del silenzio. Il salto della 2(a) a inizio compito è ammesso solo con l'hook confermato attivo.
+3. **Sessioni al lavoro:** il campanello tra sessioni (`SendMessage`) dipendeva dalla disciplina di chi rilascia → sostituito dallo stesso hook sul `PostToolUse`, al massimo ogni 10 minuti. La documentazione conferma che un `PostToolUse` può aggiungere testo al contesto via JSON.
+4. **Punto di partenza del primo controllo:** i timestamp interni del transcript non sono documentati e il formato cambia tra versioni → si usa la data di creazione del file, altrimenti 48 ore.
+5. **Righe proprie:** escludere solo le pagine *create* dalla sessione riportava come novità le sue stesse prese in carico → si escludono anche le pagine *modificate* dalla sessione, a meno che qualcun altro le modifichi dopo.
+6. **Identità della sessione:** una sessione che non conosce il proprio URL non potrebbe compilare `Sessione` in modo coerente → usa un nome unico, sempre uguale in tutte le sue righe.
