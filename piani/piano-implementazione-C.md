@@ -12,7 +12,9 @@ Adottare il **nucleo** della Proposta C nel Sistema Memoria su Notion (fase 1), 
 ## Regole per chi esegue
 1. **Ogni scrittura su Notion va riletta e confrontata** con l'atteso (regola SCRITTURA del Core Protocol). Un fallimento resta tale finché non è corretto e verificato.
 2. **Solo aggiunte** allo schema: nessun rename e nessuna modifica di opzioni select. Il design del sistema registra che un rename di opzioni select azzera i valori.
-3. **I synced block si modificano sulla pagina sorgente**, mai tramite un riferimento, e con match a riga singola. Il Core Protocol sta nel System Control Plane (`3cfd8c4140148193b983f09958c2fefe`).
+3. **I synced block si modificano sulla pagina sorgente**, mai tramite un riferimento, e con match a riga singola. Il fetch della sorgente mostra `<synced_block>`; quello di una pagina che lo riferisce mostra `<synced_block_reference>`: lì **non si modifica**, perché il Core Protocol avverte che può troncare il blocco.
+   - **Core Protocol:** la sorgente è il record 📐 Protocolli **"Core — AI Project Memory"** (`3cfd8c414014813ca6cdd8d3da02489d`), verificato il 28/09. Il System Control Plane ne mostra solo il riferimento.
+   - **Protocollo HA:** probabilmente la sorgente è il record 📐 Protocolli "Home Assistant — Runtime" (`3cfd8c41401481b0941dfb4b6cc77e97`). Va verificato al passo 0 prima di modificare.
 4. **Prima di modificare un testo se ne salva la versione attuale** nel repo (`backup/`), per poterla ripristinare.
 5. **Sorpresa rispetto a questo piano → STOP** e chiedi a Matteo.
 6. Questo lavoro è a sua volta una modifica reale al Sistema Memoria. Si chiude con una riga di Changelog, così il sistema si usa fin dal primo giorno.
@@ -22,9 +24,9 @@ Adottare il **nucleo** della Proposta C nel Sistema Memoria su Notion (fase 1), 
 ### Passo 0: prerequisiti (sola lettura)
 - Leggere la Proposta C, revisione 5: sezioni "Definizioni", "Le tre regole", "Modifiche al Core Protocol", "Modifiche allo schema".
 - Verificare che nel Changelog i campi `Riferimento` e `Creato` non esistano ancora, e nelle Attività `Sessione` e `Dove`. (Verificato il 27/09: non esistono, e i nomi non collidono.)
-- Salvare in `backup/<data>/` il testo attuale di:
-  - il synced block del Core Protocol (System CP);
-  - il protocollo "Home Assistant — Runtime" (pagina del progetto HA);
+- Individuare la **pagina sorgente** di ogni blocco da modificare (regola 3) e salvare in `backup/<data>/` il testo attuale di:
+  - il synced block del Core Protocol, dalla sorgente "Core — AI Project Memory";
+  - il protocollo "Home Assistant — Runtime", dalla sua sorgente (il fetch deve mostrare `<synced_block>`);
   - le istruzioni del controllo di integrità mensile. Chiedere a Matteo **dove sono configurate**: il System CP dice "contesto completo sulla pagina del DB", ma la pagina non mostra istruzioni, quindi probabilmente stanno nell'attività ricorrente di ChatGPT.
 
 ### Passo 1: schema 🕘 Changelog (`collection://f1c27200-7819-415d-a64c-da6ade9c4ebc`)
@@ -35,25 +37,31 @@ Adottare il **nucleo** della Proposta C nel Sistema Memoria su Notion (fase 1), 
 ### Passo 2: schema 📋 Attività (`collection://a49077bf-c915-4f51-b7f7-5346e3330383`)
 - Aggiungere `Sessione` e `Dove`, tutti e due di tipo testo.
 - **Verifica:** fetch del data source.
+- **Presa in carico dell'adozione.** In questo progetto Notion è il prodotto, quindi i passi 3-7 sono modifiche reali. Si usa il sistema su se stesso:
+  - creare l'Attività "Adozione registro condiviso", sotto il progetto 🧠 Sistema Memoria — Redesign (approvata da Matteo insieme a questo piano);
+  - prenderla in carico con `Sessione` = questa sessione e `Dove` = "Sistema Memoria: schema e protocolli";
+  - rileggere l'Attività (read-back). Verrà rilasciata al passo 8.
 
 ### Passo 3: le due viste
 - **Changelog → "Registro recente"**: tabella ordinata per `Creato` dal più recente, senza filtri; colonne `Nome`, `Tipo`, `Riferimento`, `Sotto-progetto`, `Progetto`, `Sessione`, `Creato`.
 - **Attività → "Attività in corso"**: tabella con filtro `Stato` = *In corso*; colonne `Nome`, `Sotto-progetto`, `Sessione`, `Dove`.
 - **Verifica** (sono i primi punti "da verificare" della proposta):
   - leggere ogni vista in modalità `view` con `page_size` 5: le righe devono arrivare ordinate per `Creato` e contenere `Creato` e `Riferimento`;
-  - ripetere la lettura 5 volte e controllare con `get_tool_access` che lo stato di `query_data_sources` non cambi, cioè che la lettura via vista non consumi quota;
   - annotare gli URL delle due viste: vanno scritti nel record di Protocollo.
+- **Quota: detto chiaramente.** `get_tool_access` restituisce solo uno stato (*available_with_limit*), non un contatore, quindi qui **non si può dimostrare** che la lettura tramite vista non consumi quota. Lo si scopre usandola, nella settimana di osservazione. Se una lettura fallisce per quota vale come "Notion irraggiungibile": niente modifiche reali senza Matteo. Se succede davvero, la fase 2 (l'hook, che usa l'API REST con il proprio token e non quella quota) diventa **necessaria**, non più facoltativa.
 
 ### Passo 4: record 📐 Protocolli "Registro condiviso" (`collection://3720e04d-e16f-4c01-b85f-1fdfe9d28c69`)
 - Proprietà: `Nome` = "Registro condiviso", `Ambito` = *Core*, `Attivo` = sì, `Chiave` = "registro-condiviso".
-- Corpo: le sezioni "Definizioni" e "Le tre regole" della proposta, più la procedura di lettura con gli **URL delle due viste** (passo 3), `page_size` 5 e il criterio di stop.
+- Corpo: le sezioni "Definizioni" e "Le tre regole" della proposta, più la procedura di lettura con gli **URL delle due viste** (passo 3), `page_size` 5 e il criterio di stop. Più una riga che serve alla settimana di osservazione: *"se la regola 2 ti ferma o ti fa integrare qualcosa, scrivilo nella riga di Changelog o nell'Attività"*.
 - **Non** includere la sezione sull'hook: entra solo in fase 2.
 - **Verifica:** fetch della pagina, che deve essere di circa 1,5-2,5k token. Se è molto più lunga, va condensata.
 
-### Passo 5: Core Protocol (synced block sul System CP)
+### Passo 5: Core Protocol (synced block nella sorgente "Core — AI Project Memory")
 Tre sostituzioni a riga singola e due aggiunte, con il testo esatto della proposta, sezione "Modifiche al Core Protocol":
-1. **DURANTE**: la riga "Non reinterrogare Notion per ogni file/commit…" diventa il paragrafo breve. Il paragrafo nomina il record *Registro condiviso* e le due viste; la parte sull'hook si omette in fase 1.
-2. **FINE SESSIONE**: la riga del Changelog.
+1. **DURANTE**: la riga "Non reinterrogare Notion per ogni file/commit…" diventa il paragrafo breve, con due condizioni:
+   - il paragrafo contiene un **link diretto (mention) al record *Registro condiviso***. Il BOOT vieta `notion-search`, quindi senza link una sessione non troverebbe il record né gli URL delle viste;
+   - la parte sull'hook si omette in fase 1.
+2. **FINE SESSIONE**: nella riga del Changelog si sostituisce **solo la prima frase** ("1 record solo per eventi consequenziali (…). Append-only."). La frase successiva sul campo `Backup` e su `Rollback target` **resta**: il controllo mensile la usa.
 3. **MATRICE DI OWNERSHIP**: la riga "Stato di esecuzione…".
 4. **AUTONOMO**: prendere e rilasciare in carico è autonomo. Per aprire un'Attività in autonomia, applicare **solo se Matteo lo approva** (è una raccomandazione della proposta).
 5. **Regola generale**: una modifica al Core Protocol vale solo per le sessioni avviate dopo.
@@ -76,7 +84,9 @@ Dove Matteo ha indicato (passo 0), aggiungere tre controlli:
 - `Riferimento`: `Claude-code-multitasking@<sha>`
 - `Sessione`: la sessione che esegue il piano
 
-**Verifica:** la riga compare in cima alla vista *Registro recente*.
+È l'unica riga della serie di modifiche dei passi 3-7, fatte sotto presa in carico (regola 1). Poi si **rilascia** l'Attività "Adozione registro condiviso": `Stato` = Fatto, `Sessione` vuota.
+
+**Verifica:** la riga compare in cima alla vista *Registro recente*, e l'Attività non compare più in *Attività in corso*.
 
 ### Passo 9: passo di adozione (Matteo)
 - Chiudere tutte le sessioni Claude Code aperte. Quelle da tenere vanno istruite a rileggere il System Control Plane.
@@ -90,11 +100,15 @@ Una sessione, oppure Matteo, raccoglie alla fine:
 |---|---|
 | Righe di Changelog e quante con `Riferimento` | query o vista |
 | Prese in carico: quante, quante appese, conflitti trovati | vista *Attività in corso* e Changelog |
-| Casi in cui la 2(a) o la 2(b) ha fermato una scrittura | righe di Changelog o note delle sessioni |
+| Casi in cui la 2(a) o la 2(b) ha fermato una scrittura | righe di Changelog e Attività (il record di Protocollo chiede di annotarli) |
+| Letture tramite vista fallite per quota | note delle sessioni |
 | Regole saltate | controllo di integrità anticipato a fine settimana |
 | Costo reale in token di una lettura della 2(a) | una misura su una sessione |
 
-**Decisione a fine settimana:** tenere il nucleo così com'è, correggerlo, o procedere con la fase 2. Va scritta come Decisione su Notion.
+**Decisione a fine settimana:** tenere il nucleo così com'è, correggerlo, o procedere con la fase 2. Va scritta come Decisione su Notion. **Criteri per la fase 2** (ne basta uno):
+- una sessione ripresa ha mancato un cambiamento che l'hook le avrebbe segnalato;
+- le letture della 2(a) pesano più del 10% dei token di una sessione tipica;
+- una lettura tramite vista è fallita per quota.
 
 ## Fase 2: l'hook (solo dopo la decisione)
 Piano sintetico, da dettagliare allora:
