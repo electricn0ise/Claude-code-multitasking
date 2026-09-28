@@ -1,6 +1,6 @@
 # PROPOSTA C: il Changelog come registro condiviso (raffinamento del Sistema Memoria)
 
-> **Stato: PROPOSTA preferita, non ancora applicata** (28/09/2026, revisione 5). Piano di implementazione: [piani/piano-implementazione-C.md](../piani/piano-implementazione-C.md). Nasce dall'appunto di Matteo sulle Proposte [A](proposta-A-controlli-per-sessione.md) e [B](proposta-B-coordinatore-unico-scrittore.md): serve un sistema semplice e indipendente dal tipo di progetto, senza bloccare strumenti specifici.
+> **Stato: FASE 1 APPLICATA il 28/09/2026** (revisione 5). La vista delle Attività applicata è *Prese in carico* (`Stato` = In corso e `Sessione` compilata), non *Attività in corso*: vedi l'esito nel piano. Piano di implementazione: [piani/piano-implementazione-C.md](../piani/piano-implementazione-C.md). Nasce dall'appunto di Matteo sulle Proposte [A](proposta-A-controlli-per-sessione.md) e [B](proposta-B-coordinatore-unico-scrittore.md): serve un sistema semplice e indipendente dal tipo di progetto, senza bloccare strumenti specifici.
 >
 > Non aggiunge database e non blocca strumenti. Cambia **quando** si scrive il 🕘 Changelog, aggiunge alle 📋 Attività la **presa in carico** (idea di Matteo), aggiunge due letture prima di scrivere e un **hook di avviso** facoltativo che informa le sessioni già avviate. Le correzioni rispetto alle stesure precedenti sono in fondo, nella sezione "Revisioni".
 

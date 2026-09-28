@@ -146,3 +146,22 @@ Piano sintetico, da dettagliare allora:
 - **Passi 0-8:** una **sessione Claude Code nuova** con accesso in scrittura a Notion, che parte da questo piano. Può essere locale oppure cloud, perché nella fase 1 non serve il PC. Matteo approva l'inizio e i punti marcati.
 - **Passo 9 e settimana di osservazione:** Matteo.
 - **Fase 2:** una sessione locale sul PC, perché l'hook si installa lì.
+
+## Esito dell'esecuzione (28/09/2026, fase 1)
+Eseguita da `session_01B56L9Uto5HzqusA1rNCjuZ`. Su richiesta di Matteo, senza aprire una sessione nuova.
+
+| Passo | Esito |
+|---|---|
+| 0 | Backup in `backup/2026-09-28/` (commit `b33fedc`). Sorgenti dei synced block verificate: Core → record "Core — AI Project Memory"; HA → record "Home Assistant — Runtime". Istruzioni del controllo mensile: nell'attività ricorrente di ChatGPT |
+| 1 | Changelog: `Riferimento` (testo) e `Creato` (created time). Verificato |
+| 2 | Attività: `Sessione` e `Dove`. Verificato. Creata e presa in carico l'Attività "Adozione registro condiviso (Proposta C, fase 1)" |
+| 3 | Vista **Registro recente** `view://3e9d8c41-4014-81db-82dc-000c58e9036f`: ordinata per `Creato`, verificata. **Deviazione approvata da Matteo:** la vista delle Attività è **Prese in carico** `view://3e9d8c41-4014-81a6-be9e-000c3032c294` (`Stato` = In corso **e** `Sessione` compilata). La lettura via vista restituisce **tutte le proprietà**, non solo le colonne mostrate: con `Prossimo passo` e `Contesto handoff`, lunghi, ogni lettura sarebbe costata circa 5k token |
+| 4 | Record 📐 Protocolli **Registro condiviso** `3e9d8c41401481ccbca3fa74d4458ba6` (circa 2k token). Verificato |
+| 5 | Core Protocol modificato sulla sorgente (DURANTE con link al record, FINE SESSIONE con la frase su `Backup` preservata, matrice, AUTONOMO). Propagazione al System CP verificata. Apertura autonoma di Attività **non** applicata (non approvata) |
+| 6 | Protocollo HA: riga su HA-core. Verificato |
+| 7 | Testo pronto in `piani/integrity-check-aggiunta.md`: **Matteo lo incolla** nell'attività ricorrente di ChatGPT |
+| 8 | Riga di Changelog *Milestone* dell'adozione (`Riferimento` = `Claude-code-multitasking@d413f25`); Attività rilasciata (`Stato` = Fatto, `Sessione` vuota). Verificato: la riga è in cima alla vista, e *Prese in carico* è vuota |
+
+**Da osservare nella settimana:** la lettura via vista restituisce tutte le proprietà. Il *Registro recente* costa circa 220 token a riga, non 150 come stimato; con `page_size` 5 una lettura resta intorno a 1,1k token.
+
+**Resta a Matteo:** passo 9 (chiudere o istruire le sessioni aperte), passo 7 (incollare il testo in ChatGPT), settimana di osservazione.
