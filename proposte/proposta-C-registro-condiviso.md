@@ -1,6 +1,6 @@
 # PROPOSTA C: il Changelog come registro condiviso (raffinamento del Sistema Memoria)
 
-> **Stato: PROPOSTA preferita, non ancora applicata** (27/09/2026, revisione 4). Nasce dall'appunto di Matteo sulle Proposte [A](proposta-A-controlli-per-sessione.md) e [B](proposta-B-coordinatore-unico-scrittore.md): serve un sistema semplice e indipendente dal tipo di progetto, senza bloccare strumenti specifici.
+> **Stato: PROPOSTA preferita, non ancora applicata** (28/09/2026, revisione 5). Piano di implementazione: [piani/piano-implementazione-C.md](../piani/piano-implementazione-C.md). Nasce dall'appunto di Matteo sulle Proposte [A](proposta-A-controlli-per-sessione.md) e [B](proposta-B-coordinatore-unico-scrittore.md): serve un sistema semplice e indipendente dal tipo di progetto, senza bloccare strumenti specifici.
 >
 > Non aggiunge database e non blocca strumenti. Cambia **quando** si scrive il 🕘 Changelog, aggiunge alle 📋 Attività la **presa in carico** (idea di Matteo), aggiunge due letture prima di scrivere e un **hook di avviso** facoltativo che informa le sessioni già avviate. Le correzioni rispetto alle stesure precedenti sono in fondo, nella sezione "Revisioni".
 
@@ -23,11 +23,13 @@ Prima di scrivere si guardano tutte e tre. Una sessione già avviata viene **avv
 - file definitivi (per esempio `CASA.sh3d`);
 - cambio di branch in un checkout usato anche da altri.
 
+Una modifica reale riguarda **configurazione, codice o artefatti**, non lo stato di esercizio: le automazioni HA che cambiano lo stato delle entità, o uno script che scrive dati di continuo, non sono modifiche reali. È coerente con la matrice di ownership: lo stato live appartiene a HA e non va mai su Notion.
+
 Non sono modifiche reali:
 - modificare file o committare sul proprio branch;
 - lavorare in un worktree o in una copia propria;
 - le anteprime e le entità di prova proprie;
-- le scritture su Notion.
+- le scritture su Notion, **salvo quando Notion è il prodotto del progetto**: schema dei database, protocolli e pagine strutturali del Sistema Memoria. In quel caso sono modifiche reali come le altre.
 
 **Spazio condiviso.** Una cartella o risorsa che più sessioni possono toccare: il checkout principale di un repo, una risorsa in copia unica (`CASA.sh3d`), la produzione HA. Uno spazio proprio (worktree, copia, anteprima) non è condiviso.
 
@@ -166,7 +168,9 @@ con:
 
 **Viste** (lette in modalità vista):
 - ***Registro recente*** (Changelog): ordinata per `Creato` dal più recente, senza filtri; colonne `Nome`, `Tipo`, `Riferimento`, `Sotto-progetto`, `Progetto`, `Sessione`, `Creato`.
-- ***Attività in corso*** (Attività): filtro `Stato` = *In corso*; colonne `Nome`, `Sotto-progetto`, `Sessione`, `Dove`, `Prossimo passo`.
+- ***Attività in corso*** (Attività): filtro `Stato` = *In corso*; colonne `Nome`, `Sotto-progetto`, `Sessione`, `Dove`. **Senza `Prossimo passo`**: misurato il 27/09, è lungo in media 600 caratteri, e con 10 Attività in corso triplicherebbe il costo di ogni lettura.
+
+Le viste si leggono **a pagine di 5 righe**: di solito ci si ferma molto prima, alla prima riga già vista. "Due pagine" diventano quindi 10 righe.
 
 Tutte e due servono anche a Matteo per vedere a colpo d'occhio chi fa cosa.
 
@@ -178,6 +182,7 @@ Tutte e due servono anche a Matteo per vedere a colpo d'occhio chi fa cosa.
 - i nomi degli strumenti Notion di creazione e modifica pagine nella configurazione del PC (servono al matcher del `PostToolUse`), e che `tool_input`/`tool_response` contengano l'id della pagina. La documentazione conferma che `tool_response` è disponibile, ma non la sua forma per questi strumenti;
 - che il testo restituito da un `PostToolUse` via JSON (`hookSpecificOutput.additionalContext`) entri davvero nel contesto a metà di un compito: è documentato, non provato;
 - se l'API di Notion arrotonda `created_time` e `last_edited_time` al minuto: la finestra di 5 minuti copre entrambi i casi, ma va saputo;
+- che il token di un'integrazione interna di Notion non scada da solo;
 - se un hook aggiunto a `settings.json` vale anche per le sessioni già aperte. Non va dato per scontato: all'installazione della fase 2 si applica lo stesso passo di adozione.
 
 **Template di pagina:** facoltativo. Utile per le righe che Matteo scrive a mano.
@@ -187,7 +192,19 @@ Tutte e due servono anche a Matteo per vedere a colpo d'occhio chi fa cosa.
 - righe "non committato" non saldate da una riga successiva (quella che nel `Riferimento` dice "salda il non committato del <data>") → **debiti aperti**;
 - Attività *In corso* con `Dove` compilato senza righe di Changelog con la stessa `Sessione` da più di 3 giorni → **prese in carico appese**. Il confronto si fa sulla `Sessione` perché Attività e Changelog non sono collegati.
 
-## Costo
+## Costo (misurato il 27/09 sul Notion reale)
+**Misure:**
+- una riga del Changelog letta tramite vista costa circa 220 token con le colonne attuali, circa 150 con la vista snella;
+- le Attività *In corso* sono 10, a circa 120 token l'una senza `Prossimo passo`;
+- il Changelog riceve tipicamente 5 righe al giorno, con punte di 28-31.
+
+**Stime:**
+- una lettura della regola 2(a) (5 righe di registro più le Attività in corso) costa **circa 2k token**;
+- una giornata tipica di una sessione (8 compiti, 4 modifiche reali, 1 presa in carico) costa circa **25-30k token senza hook** e **circa 15k con l'hook**. Su sessioni che arrivano a centinaia di migliaia di token è il 5-10% (3-6% con l'hook).
+
+La regola 3 fa risparmiare molto di più di quanto il sistema costi: riprendere da una sessione nuova invece che da una da 500k.
+
+**Dettaglio per voce:**
 - **Scrittura:** una riga di Changelog per modifica reale (una per serie). Due scritture sull'Attività per presa in carico (prendere e rilasciare), più la rilettura.
 - **Lettura, con l'hook:** zero token quando non c'è niente di nuovo; una riga di conferma a inizio sessione; circa 30-50 token per ogni riga di novità. Le viste si leggono solo quando l'hook segnala novità sul proprio sotto-progetto e prima delle modifiche reali, circa 1-2k token.
 - **Lettura, senza l'hook:** una lettura delle due viste a ogni compito (richiesta nuova, non ogni messaggio) e prima delle modifiche reali, circa 1-1,5k token; 3-4k alla prima lettura e dopo una compaction. Con molti compiti al giorno è il costo più alto del sistema, ed è il motivo principale della fase 2.
@@ -201,6 +218,12 @@ Tutte e due servono anche a Matteo per vedere a colpo d'occhio chi fa cosa.
 - **La riga dell'hook è per sotto-progetto, non per argomento:** due sessioni sullo stesso sotto-progetto ma su cose diverse si vedono a vicenda come novità. È un rumore basso e voluto, perché la scelta di cosa è rilevante resta alla sessione.
 - **Due scritture nello stesso istante** (anche due prese in carico) restano possibili, con una finestra di secondi, accettata. Il read-back ne riduce gli effetti.
 - **Il registro cresce di più**; le serie restano contenute grazie alla presa in carico.
+- **Azioni che non si possono rileggere o annullare** (abbinare un dispositivo, un acquisto, un messaggio inviato): la 2(b) non si applica. Restano la presa in carico, la riga di registro e la conferma di Matteo prima dell'azione, che il Core Protocol richiede già.
+- **Chi non usa il Sistema Memoria** (sessioni senza Notion, Matteo dall'interfaccia, altri strumenti) è visto solo dalla 2(b), per costruzione.
+
+## Manutenzione
+- **Fase 1:** niente codice. Circa 5-10 minuti al mese per leggere il report del controllo di integrità (prese in carico appese, debiti "non committato"). Nessuna configurazione per i progetti nuovi. Il passo di adozione si ripete solo quando cambia il Core Protocol.
+- **Fase 2:** uno script Python di circa 200 righe, solo libreria standard. Stimati 1-2 interventi all'anno, sempre dopo un errore visibile (riga di errore, conferma mancante). I file di stato più vecchi di 14 giorni si cancellano da soli.
 
 ## Adozione in due fasi
 1. **Nucleo:** le tre regole, la presa in carico nelle Attività, i campi nuovi, le due viste, il paragrafo nel Core Protocol, il record di Protocollo, la riga nel protocollo HA e le istruzioni aggiornate della pagina 🩺 Integrity Check (il controllo mensile lo fa ChatGPT da quelle istruzioni: se non si aggiornano, i controlli nuovi non partono). Funziona da solo, ed è già un sistema completo.
@@ -266,3 +289,9 @@ Strumenti facoltativi, solo se servono a un progetto specifico: uno script per l
    - l'aggiornamento delle istruzioni del controllo di integrità entra tra i passi di adozione;
    - "quattro righe" nel Core Protocol erano diventate circa sei, e ora il numero è corretto;
    - `Dove` per i checkout si scrive con il percorso del campo `Repo`, così due sessioni scrivono lo stesso spazio allo stesso modo.
+
+**Revisione 5** (dopo le domande di Matteo su costo, generalità e manutenzione):
+1. **Costi misurati** sul Notion reale al posto delle stime; la vista *Attività in corso* senza `Prossimo passo` (triplicava il costo di ogni lettura); pagine da 5 righe.
+2. **Notion come prodotto:** per il progetto del Sistema Memoria le scritture su Notion (schema, protocolli, pagine strutturali) sono modifiche reali.
+3. **Stato di esercizio escluso:** una modifica reale riguarda configurazione, codice o artefatti, non lo stato delle entità HA o i dati scritti di continuo da uno script.
+4. **Limite dichiarato** per le azioni che non si possono rileggere o annullare; sezione "Manutenzione".
